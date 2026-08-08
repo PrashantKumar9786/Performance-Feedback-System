@@ -1,0 +1,13 @@
+{
+  "name": "feedback-emp",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Multi-tenant monthly performance feedback tool",
+  "scripts": {
+    "db:up": "docker compose up -d",
+    "setup": "npm --prefix backend run db:setup",
+    "dev:api": "npm --prefix backend run dev",
+    "dev:web": "npm --prefix frontend run dev",
+    "seed": "npm --prefix backend run db:seed"
+  }
+}

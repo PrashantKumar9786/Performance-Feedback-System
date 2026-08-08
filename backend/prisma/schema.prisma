@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  EMPLOYEE
+  MANAGER
+  HR
+}
+
+enum CycleStatus {
+  OPEN
+  CLOSED
+}
+
+model Company {
+  id        String          @id @default(uuid())
+  name      String
+  slug      String          @unique
+  createdAt DateTime        @default(now())
+  users     User[]
+  cycles    FeedbackCycle[]
+}
+
+/// Org hierarchy via managerId (self-FK).
+/// Role controls app access; reporting line controls who can give feedback to whom.
+model User {
+  id             String   @id @default(uuid())
+  email          String
+  passwordHash   String
+  name           String
+  title          String?
+  role           Role     @default(EMPLOYEE)
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  managerId      String?
+  manager        User?    @relation("OrgHierarchy", fields: [managerId], references: [id])
+  directReports  User[]   @relation("OrgHierarchy")
+  feedbackGiven  FeedbackSubmission[] @relation("ManagerFeedback")
+  feedbackReceived FeedbackSubmission[] @relation("EmployeeFeedback")
+  createdAt      DateTime @default(now())
+
+  @@unique([companyId, email])
+  @@index([managerId])
+  @@index([companyId])
+}
+
+/// Five fixed parameters shared across all pilot companies.
+model FeedbackParameter {
+  id          String          @id @default(uuid())
+  key         String          @unique
+  name        String
+  description String?
+  sortOrder   Int
+  scores      FeedbackScore[]
+}
+
+/// One monthly feedback window per company (e.g. March 2026).
+model FeedbackCycle {
+  id           String                @id @default(uuid())
+  companyId    String
+  company      Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  year         Int
+  month        Int
+  label        String
+  status       CycleStatus           @default(OPEN)
+  submissions  FeedbackSubmission[]
+  createdAt    DateTime              @default(now())
+
+  @@unique([companyId, year, month])
+  @@index([companyId, status])
+}
+
+/// One manager → employee review within a cycle.
+model FeedbackSubmission {
+  id          String           @id @default(uuid())
+  cycleId     String
+  cycle       FeedbackCycle    @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  managerId   String
+  manager     User             @relation("ManagerFeedback", fields: [managerId], references: [id])
+  employeeId  String
+  employee    User             @relation("EmployeeFeedback", fields: [employeeId], references: [id])
+  submittedAt DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  scores      FeedbackScore[]
+
+  @@unique([cycleId, employeeId])
+  @@index([managerId])
+  @@index([employeeId])
+}
+
+model FeedbackScore {
+  id           String            @id @default(uuid())
+  submissionId String
+  submission   FeedbackSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  parameterId  String
+  parameter    FeedbackParameter @relation(fields: [parameterId], references: [id])
+  score        Int
+  comment      String
+
+  @@unique([submissionId, parameterId])
+}
