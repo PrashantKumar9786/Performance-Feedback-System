@@ -6,11 +6,13 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
+    "postinstall": "prisma generate",
     "build": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.js",
-    "db:setup": "prisma db push && node prisma/seed.js"
+    "db:setup": "prisma db push && node prisma/seed.js",
+    "render:setup": "prisma db push && node prisma/seed.js"
   },
   "keywords": [],
   "author": "",
