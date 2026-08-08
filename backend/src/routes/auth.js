@@ -54,6 +54,12 @@ router.post('/login', async (req, res, next) => {
       },
     });
   } catch (err) {
+    console.error('Login error:', err.message);
+    if (err.code?.startsWith('P')) {
+      return res.status(500).json({
+        error: 'Database error — tables may not exist. Run: npm run render:setup on Render.',
+      });
+    }
     return next(err);
   }
 });

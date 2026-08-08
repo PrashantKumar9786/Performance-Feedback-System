@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const prisma = require("./prisma");
-
 const authRoutes = require("./routes/auth");
 const feedbackRoutes = require("./routes/feedback");
 const hrRoutes = require("./routes/hr");
@@ -19,11 +18,9 @@ function requireEnv(name) {
 }
 
 const envOk = requireEnv("DATABASE_URL") && requireEnv("JWT_SECRET");
-
 if (!envOk) {
-  console.error(
-    "Server starting without required env vars — API routes that need the database will fail.",
-  );
+  console.error("Missing required environment variables. Exiting.");
+  process.exit(1);
 }
 
 function parseAllowedOrigins() {
@@ -31,20 +28,15 @@ function parseAllowedOrigins() {
     .split(",")
     .map((url) => url.trim())
     .filter(Boolean);
-
   return [...fromEnv, "http://localhost:5173", "http://localhost:5174"];
 }
 
 function isOriginAllowed(origin) {
-  if (!origin) return true;
-
+  if (!origin) return true; // non-browser requests (curl, server-to-server) have no Origin header
   const allowedOrigins = parseAllowedOrigins();
   if (allowedOrigins.includes(origin)) return true;
-
   // Allow any Vercel deployment URL (preview + production).
-  if (/^https:\/\/[\w-]+\.vercel\.app$/.test(origin)) return true;
-
-  return false;
+  return /^https:\/\/[\w-]+\.vercel\.app$/.test(origin);
 }
 
 app.use(
@@ -60,6 +52,7 @@ app.use(
     credentials: true,
   }),
 );
+
 app.use(express.json());
 
 app.get("/api/health", (_req, res) => {
@@ -91,6 +84,17 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Feedback API listening on http://localhost:${PORT}`);
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    const users = await prisma.user.count();
+    console.log(`Database connected. Users in DB: ${users}`);
+    if (users === 0) {
+      console.warn("WARNING: No users found. Run: npm run render:setup");
+    }
+  } catch (err) {
+    console.error("Database NOT connected:", err.message);
+    console.error("Check DATABASE_URL and run: npm run render:setup");
+  }
 });
